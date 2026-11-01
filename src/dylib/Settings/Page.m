@@ -3,6 +3,7 @@
 @implementation DPPageView {
     DPPatch *_patch;
     NSMutableArray<DPPatchSwitch *> *_switches;
+    NSMutableArray<NSPopUpButton *> *_choices;
     NSTextField *_note;
 }
 
@@ -10,6 +11,7 @@
     if (!(self = [super initWithFrame:NSZeroRect])) return nil;
     _patch = item.patch;
     _switches = [NSMutableArray new];
+    _choices = [NSMutableArray new];
     _note = DPLabel(@"", 11, NSFontWeightRegular, NSColor.secondaryLabelColor);
 
     DPPreviewView *preview = [[DPPreviewView alloc] initWithKey:item.key];
@@ -21,13 +23,16 @@
     ]];
     heading.spacing = 10;
     heading.alignment = NSLayoutAttributeTop;
-    NSMutableArray<NSView *> *views = [NSMutableArray arrayWithObjects:preview, DPGroup(@[DPRow(heading, [self switchFor:item.patch])]), nil];
+    NSMutableArray<NSView *> *rows = [NSMutableArray arrayWithObject:DPRow(heading, [self switchFor:item.patch])];
+    if (item.patch && item.patch->choices) [rows addObject:[self choiceRowFor:item.patch]];
+    NSMutableArray<NSView *> *views = [NSMutableArray arrayWithObjects:preview, DPGroup(rows), nil];
 
     NSMutableArray<NSView *> *options = [NSMutableArray new];
     if (item.patch) DPForEachOption(item.patch, ^(DPPatch *option) {
         NSView *text = DPColumn(@[DPLabel(option->title, 13, NSFontWeightRegular, NSColor.labelColor),
                                   DPLabel(option->detail, 11, NSFontWeightRegular, NSColor.secondaryLabelColor)], 2);
         [options addObject:DPRow(text, [self switchFor:option])];
+        if (option->choices) [options addObject:[self choiceRowFor:option]];
     });
     if (options.count) [views addObjectsFromArray:@[DPHeader(@"Options"), DPGroup(options)]];
 
@@ -53,8 +58,25 @@
     return toggle.withHiddenIcon;
 }
 
+- (NSView *)choiceRowFor:(DPPatch *)patch {
+    NSPopUpButton *menu = [NSPopUpButton new];
+    for (const char *const *name = patch->choices; *name; name++) [menu addItemWithTitle:@(*name)];
+    [menu selectItemAtIndex:DPPatchChoice(patch)];
+    menu.identifier = patch->key;
+    menu.target = self;
+    menu.action = @selector(choiceChanged:);
+    menu.accessibilityLabel = patch->choiceTitle;
+    [_choices addObject:menu];
+    return DPRow(DPLabel(patch->choiceTitle, 13, NSFontWeightRegular, NSColor.labelColor), menu);
+}
+
+- (void)choiceChanged:(NSPopUpButton *)sender {
+    DPSetPatchChoice(DPPatchNamed(sender.identifier), sender.indexOfSelectedItem);
+}
+
 - (void)sync {
     for (DPPatchSwitch *toggle in _switches) [toggle sync];
+    for (NSPopUpButton *menu in _choices) menu.enabled = DPPatchNamed(menu.identifier)->on;
     _note.stringValue = (_patch ? DPWhyDisabled(_patch) : nil) ?: @"";
     _note.hidden = !_note.stringValue.length;
 }

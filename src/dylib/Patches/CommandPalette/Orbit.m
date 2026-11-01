@@ -17,19 +17,19 @@ DPOrbitFit DPOrbitFitIn(NSSize size) {
     return (DPOrbitFit){left, left - DPHubOffset, floor(size.height / 2), MIN(DPMaxShift, MAX(0, chipLeft - DPMinChipLeft)), chipLeft};
 }
 
-static void DPSetContents(CALayer *layer, id image, NSSize size, CGFloat scale) {
+void DPSetContents(CALayer *layer, id image, NSSize size, CGFloat scale) {
     layer.contents = image;
     layer.contentsScale = scale;
     layer.bounds = (CGRect){CGPointZero, size};
 }
 
-static void DPSetShadowShape(CALayer *layer, NSSize size, CGFloat radius) {
+void DPSetShadowShape(CALayer *layer, NSSize size, CGFloat radius) {
     CGPathRef shape = CGPathCreateWithRoundedRect((CGRect){CGPointZero, size}, radius, radius, NULL);
     layer.shadowPath = shape;
     CGPathRelease(shape);
 }
 
-static void DPAddShadow(CALayer *layer, CGFloat radius) {
+void DPAddShadow(CALayer *layer, CGFloat radius) {
     layer.shadowColor = NSColor.blackColor.CGColor;
     layer.shadowOpacity = .22;
     layer.shadowRadius = radius;

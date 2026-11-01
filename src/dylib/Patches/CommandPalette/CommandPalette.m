@@ -8,7 +8,7 @@ static NSWindow *DPBrowserWindowFor(NSWindow *window) {
 }
 
 // characters, not charactersIgnoringModifiers: with ⌘ held, layouts such as Hebrew give the Latin letter.
-static BOOL DPIsCommand(NSEvent *event, NSString *characters) {
+BOOL DPIsCommand(NSEvent *event, NSString *characters) {
     NSEventModifierFlags flags = event.modifierFlags & (NSEventModifierFlagCommand | NSEventModifierFlagShift | NSEventModifierFlagOption | NSEventModifierFlagControl);
     return flags == NSEventModifierFlagCommand && [event.characters.lowercaseString isEqualToString:characters];
 }

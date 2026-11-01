@@ -63,7 +63,7 @@ rm -rf /tmp/DiaTweaks && git clone --depth 1 https://github.com/JaceThings/DiaTw
 <details>
 <summary><strong>Is it safe?</strong></summary>
 
-Yes. It's built on your Mac from this code. It never reads your pages or passwords. The command palette searches your open tabs and browsing history on your Mac, and nothing leaves it.
+Yes. It's built on your Mac from this code. It never reads your pages or passwords. The command palette searches your open tabs and browsing history on your Mac, the pinned notch reads your pinned tabs and the site icons Dia already saved, and nothing leaves it.
 
 </details>
 

@@ -19,6 +19,8 @@ NSInteger DPPaletteScore(NSString *query, NSString *text);  // 0 if it doesn't m
 NSURL *DPPaletteURL(NSString *query);                       // The web address typed, or nil.
 NSString *DPPaletteCheckMatching(void);                     // nil, or which check failed.
 
+BOOL DPIsCommand(NSEvent *event, NSString *characters);  // CommandPalette.m
+
 // Rows.m
 DPPaletteRow *DPPaletteMakeRow(DPPaletteKind kind, NSString *title, NSString *detail, NSString *symbol, void (^action)(void));
 void DPPaletteUseMoons(DPPaletteRow *row, NSArray<DPPaletteRow *> *moons);  // Enter then runs the first.
@@ -42,6 +44,7 @@ NSArray<DPPaletteRow *> *DPPaletteHistoryRows(NSString *query);  // nil if no pr
 
 // Art.m
 extern const CGFloat DPPaletteChipHeight, DPPaletteChipMargin, DPPaletteMoonHeight;
+id DPImage(NSSize size, NSAppearance *appearance, CGFloat scale, void (^draw)(void));
 NSColor *DPPaletteSurfaceColor(void);
 NSColor *DPPaletteLineColor(void);
 NSColor *DPPaletteFaintTextColor(void);
@@ -49,6 +52,9 @@ void DPPaletteDrawRow(DPPaletteRow *row, NSString *query, NSAppearance *appearan
 void DPPaletteDrawMoons(DPPaletteRow *row, NSAppearance *appearance, CGFloat scale);
 
 // Orbit.m
+void DPSetContents(CALayer *layer, id image, NSSize size, CGFloat scale);
+void DPSetShadowShape(CALayer *layer, NSSize size, CGFloat radius);
+void DPAddShadow(CALayer *layer, CGFloat radius);
 typedef struct {
     double position;  // Which result faces the search bar; fractions mid-spin. It keeps counting past the last one.
     CGFloat reveal, moonReveal, focus;  // Each 0 to 1. focus: how far into the moons, with the rest blurred and shifted away.
@@ -70,6 +76,7 @@ DPOrbitFit DPOrbitFitIn(NSSize size);
 
 // Panel.m
 void DPPaletteToggle(NSWindow *parent);
+void DPPaletteOpen(NSWindow *parent, NSString *text);  // Opens with `text` selected, ready to edit or replace.
 void DPPaletteHide(void);
 BOOL DPPaletteIsOpen(void);
 void DPPaletteRunMoon(NSInteger index);  // Runs that action of the active result, if it has one.

@@ -10,6 +10,8 @@
 #define DPDiaLibraryCell        "_TtC10TabSidebar15LibraryCellView"
 #define DPDiaContentPane        "_TtC11ContentPane15ContentPaneView"
 #define DPDiaContentContainer   "_TtC6Window20ContentContainerView"
+#define DPDiaTabList            "_TtC7TabList11TabListView"
+#define DPDiaTabDock            "_TtC10TabSurface11TabDockView"
 #define DPDiaShadowView         "_TtC5ARCUI10ShadowView"
 #define DPDiaBrowser            "ArcBrowser"
 #define DPDiaBrowserDelegate    "_TtC3ADK15ChromiumBrowser"

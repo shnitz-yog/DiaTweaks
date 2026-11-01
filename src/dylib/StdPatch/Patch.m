@@ -57,6 +57,16 @@ BOOL DPSavedOn(DPPatch *patch) {
     return !patch->unavailable && (value ? [value boolValue] : patch->defaultOn);
 }
 
+static NSString *DPChoiceKey(DPPatch *patch) { return [patch->key stringByAppendingString:@"Choice"]; }
+
+NSInteger DPPatchChoice(DPPatch *patch) { return [DPDefaults integerForKey:DPChoiceKey(patch)]; }
+
+void DPSetPatchChoice(DPPatch *patch, NSInteger choice) {
+    [DPDefaults setInteger:choice forKey:DPChoiceKey(patch)];
+    if (patch->relayout) patch->relayout();
+    [NSNotificationCenter.defaultCenter postNotificationName:DPPatchesDidChangeNotification object:nil];
+}
+
 static int DPCompareOrder(const void *a, const void *b) {
     return (*(DPPatch *const *)a)->order - (*(DPPatch *const *)b)->order;
 }

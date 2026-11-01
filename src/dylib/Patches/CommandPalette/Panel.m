@@ -159,6 +159,12 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
     [_link addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
 }
 
+- (void)fill:(NSString *)text {
+    _field.stringValue = text;
+    [self reload];
+    [_field selectText:nil];
+}
+
 - (void)dismiss {
     if (!_panel.visible) return;
     [_link invalidate];
@@ -388,6 +394,12 @@ void DPPaletteHide(void) { [DPController() dismiss]; }
 NSDictionary *DPPaletteDebugState(void) { return DPController().debugState; }
 
 void DPPaletteRunMoon(NSInteger index) { [DPController() runMoon:index]; }
+
+void DPPaletteOpen(NSWindow *parent, NSString *text) {
+    if (DPController().isOpen) return;
+    [DPController() showOver:parent];
+    [DPController() fill:text];
+}
 
 void DPPaletteToggle(NSWindow *parent) {
     if (DPController().isOpen) [DPController() dismissToParent];

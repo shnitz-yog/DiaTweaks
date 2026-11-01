@@ -34,7 +34,7 @@ static NSColor *DPTileColor(void) { return DPColor(0xF1EEE7, 0x303036); }
 static NSColor *DPMarkColor(void) { return DPColor(0xFAE3A8, 0x6B5417); }
 static NSColor *DPActiveLineColor(void) { return DPColor(0xB8B4A8, 0x77777F); }
 
-static id DPImage(NSSize size, NSAppearance *appearance, CGFloat scale, void (^draw)(void)) {
+id DPImage(NSSize size, NSAppearance *appearance, CGFloat scale, void (^draw)(void)) {
     NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:NULL pixelsWide:(NSInteger)ceil(size.width * scale) pixelsHigh:(NSInteger)ceil(size.height * scale)
                                                                     bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace bytesPerRow:0 bitsPerPixel:0];
     bitmap.size = size;
