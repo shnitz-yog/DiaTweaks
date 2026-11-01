@@ -4,6 +4,22 @@ Small tweaks for [Dia](https://www.diabrowser.com) that stay in place when Dia u
 
 Unofficial and not affiliated with The Browser Company. Apple Silicon, macOS 14 or later.
 
+## What this fork adds
+
+This is a fork of [DiaTweaks](https://github.com/JaceThings/DiaTweaks) with three more tweaks:
+
+- **Command palette:** ⌘T opens a search bar. As you type, your open tabs, history, Dia's commands and tweaks fan out beside it on a curve, along with Google and Claude searches. Pause on a result or press → to see what you can do with it. It's on by default.
+- **Pinned notch:** replaces the toolbar with a notch at the bottom of the window that shows the site's domain. Hover it for back, forward, reload, extensions, bookmark, share and search, and your pinned tabs float out above it. They leave the sidebar. Pick bottom center or the bottom left corner in Settings. It's an option under **Hide toolbar**, which needs to be on.
+- **Pin halo:** hold Control and your pinned tabs and search fan out around the pointer. Flick toward one and let go.
+
+Turn on the last two in **Dia → Settings → Patches**.
+
+Updating DiaTweaks installs the original project and removes these tweaks, so turn off its automatic updates:
+
+```sh
+defaults write com.diapatches autoUpdateTweaks -int 0
+```
+
 ## Tweaks
 
 Each tweak changes one part of how Dia looks, like the padding around pages or a button in the toolbar. There's also a command, **Group Tabs by Domain**, that groups tabs by site.
@@ -19,7 +35,7 @@ Turn tweaks on and off in **Dia → Settings → Patches**, or with the `diatwea
 3. Paste this into Terminal:
 
    ```sh
-   git clone https://github.com/JaceThings/DiaTweaks.git ~/DiaTweaks && ~/DiaTweaks/install.sh
+   git clone https://github.com/shnitz-yog/DiaTweaks.git ~/DiaTweaks && ~/DiaTweaks/install.sh
    ```
 
 Dia quits and reopens. If macOS asks about "Dia Safe Storage", enter your password and click **Always Allow**.
