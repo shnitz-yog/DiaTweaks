@@ -7,7 +7,7 @@ build/diapatch: src/diapatch/main.m | build
 	clang $(CFLAGS) -framework Foundation -o $@ $<
 
 build/DiaPatches.dylib: $(DYLIB_SOURCES) | build
-	clang $(CFLAGS) -Isrc/dylib -dynamiclib -framework AppKit -framework QuartzCore -framework AVFoundation -framework VideoToolbox -framework CoreMedia -framework CoreVideo -o $@ $(filter %.m,$^)
+	clang $(CFLAGS) -Isrc/dylib -dynamiclib -lsqlite3 -framework AppKit -framework QuartzCore -framework AVFoundation -framework VideoToolbox -framework CoreMedia -framework CoreVideo -o $@ $(filter %.m,$^)
 
 # The patch list for diatweaks. With DIAPATCH_MANIFEST set, the dylib writes it and exits as it loads, so diapatch never runs.
 build/patches.json: build/DiaPatches.dylib build/diapatch
