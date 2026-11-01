@@ -36,8 +36,17 @@ static void DPApplyCommandPalette(DPPatch *patch) {
     if (!patch->on) DPPaletteHide();
 }
 
+// Reserved names: the filter searches real history, where a visited address gets no typed row.
+static NSString *DPCheckTypedAddress(void) {
+    DPPaletteRow *site = DPPaletteMakeRow(DPPaletteKindTab, @"Known site", @"known-site.example", @"", nil);
+    site.searchText = @"known-site.example/";
+    if (DPPaletteFilter(@[site], @"known-site.exampl").firstObject != site) return @"part of a known address opened as its own";
+    if (![DPPaletteFilter(@[site], @"new-site.example").firstObject.title isEqualToString:@"Open new-site.example"]) return @"a new address wasn't offered first";
+    return nil;
+}
+
 static NSString *DPVerifyCommandPalette(DPPatch *patch) {
-    NSString *problem = DPPaletteCheckMatching();
+    NSString *problem = DPPaletteCheckMatching() ?: DPCheckTypedAddress();
     if (problem) return problem;
     if (!DPPaletteTabRows().count) return @"can't read tabs";
     if (!DPPaletteMenuItem(@"New Tab")) return @"no New Tab menu item";

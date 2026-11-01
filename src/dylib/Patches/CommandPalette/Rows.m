@@ -134,11 +134,11 @@ NSArray<DPPaletteRow *> *DPPaletteFilter(NSArray<DPPaletteRow *> *rows, NSString
     // A typed address that's already open or in history is that row, so it switches to the tab rather than opening it twice.
     NSURL *url = DPPaletteURL(query);
     NSString *address = url ? DPPaletteBareURL(url.absoluteString) : nil;
+    DPPaletteRow *typed = nil;
     if (address && ![seen containsObject:address] && ![seen containsObject:[address stringByAppendingString:@"/"]]) {
-        DPPaletteRow *row = DPPaletteMakeRow(DPPaletteKindSite, [@"Open " stringByAppendingString:query], url.host ?: @"", @"globe", nil);
-        row.searchText = address;
-        DPPaletteUseMoons(row, DPPaletteSiteMoons(url, query));
-        [shown addObject:row];
+        typed = DPPaletteMakeRow(DPPaletteKindSite, [@"Open " stringByAppendingString:query], url.host ?: @"", @"globe", nil);
+        typed.searchText = address;
+        DPPaletteUseMoons(typed, DPPaletteSiteMoons(url, query));
     }
     NSMutableArray<DPPaletteRow *> *matches = [NSMutableArray new];
     for (DPPaletteRow *row in candidates) {
@@ -149,7 +149,11 @@ NSArray<DPPaletteRow *> *DPPaletteFilter(NSArray<DPPaletteRow *> *rows, NSString
     [matches sortWithOptions:NSSortStable usingComparator:^NSComparisonResult(DPPaletteRow *a, DPPaletteRow *b) {
         return a.score == b.score ? NSOrderedSame : a.score > b.score ? NSOrderedAscending : NSOrderedDescending;
     }];
+    // github.co on the way to github.com looks like an address, but the site it starts is what's wanted.
+    BOOL partial = typed && [matches.firstObject.searchText.lowercaseString hasPrefix:address.lowercaseString];
+    if (typed && !partial) [shown addObject:typed];
     [shown addObjectsFromArray:[matches subarrayWithRange:NSMakeRange(0, MIN(matches.count, DPMaxMatches - shown.count))]];
+    if (partial) [shown addObject:typed];
     [shown addObject:DPPaletteGoogleRow(query)];
     [shown addObject:DPPaletteClaudeRow(query)];
     return shown;
