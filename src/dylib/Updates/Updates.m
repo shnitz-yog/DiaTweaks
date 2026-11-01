@@ -191,7 +191,9 @@ static void DPShowUpdateAlert(void) {
         for (NSString *part in @[DPDia, DPTweaks]) {
             if (![updates available:part] && ![updates staged:part]) continue;
             [parts addObject:part];
-            [names addObject:[NSString stringWithFormat:@"%@ %@", DPPartName(part), updates.found[part][@"latest"]]];
+            // What's staged can differ from the feed's latest after Dia switches between stable and Early Birds.
+            NSString *version = updates.found[part][[updates staged:part] ? @"staged" : @"latest"];
+            [names addObject:[NSString stringWithFormat:@"%@ %@", DPPartName(part), version]];
         }
         NSAlert *alert = [NSAlert new];
         if (!parts.count) {
@@ -224,7 +226,39 @@ static void DPInstallOnQuit(void) {
     [task launchAndReturnError:nil];
 }
 
+// Dia's own updater would put the official app over the patched one, so its checks go to DiaTweaks instead. Dia's feed
+// is stable or, once Dia lets the account switch App Build to Early Birds, the Early Birds one; diapatch updates from it.
+@protocol DPSparkleUpdater
+@property (nonatomic, readonly) NSURL *feedURL;
+@end
+
+static void DPSaveDiaFeed(id<DPSparkleUpdater> updater) {
+    NSString *feed = updater.feedURL.absoluteString;
+    if (feed) [DPUpdateDefaults() setObject:feed forKey:@"diaFeed"];
+}
+
+static BOOL DPUpdater_startUpdater(id self, SEL _cmd, NSError **error) {
+    DPSaveDiaFeed(self);
+    return DPCallOriginal(DPUpdater_startUpdater, self, error);
+}
+
+static void DPUpdater_checkForUpdates(id self, SEL _cmd) {
+    DPSaveDiaFeed(self);
+    DPShowUpdateAlert();
+}
+
+static void DPUpdater_checkForUpdatesInBackground(id self, SEL _cmd) {
+    DPSaveDiaFeed(self);
+}
+
+// Sparkle's own schedule skips the methods above, and Dia's "Automatically update Dia" can turn it on.
+static BOOL DPUpdater_automaticallyChecksForUpdates(id self, SEL _cmd) { return NO; }
+
 void DPInstallUpdates(void) {
+    DPHook("SPUUpdater", @selector(startUpdater:), (IMP)DPUpdater_startUpdater);
+    DPHook("SPUUpdater", @selector(checkForUpdates), (IMP)DPUpdater_checkForUpdates);
+    DPHook("SPUUpdater", @selector(checkForUpdatesInBackground), (IMP)DPUpdater_checkForUpdatesInBackground);
+    DPHook("SPUUpdater", @selector(automaticallyChecksForUpdates), (IMP)DPUpdater_automaticallyChecksForUpdates);
     DPOnLaunch(^{
         DPOnMenuItem(nil, @"Check for Updates", ^{ DPShowUpdateAlert(); });
         if (DPAutoLevelOf(DPDia) == DPAutoOff && DPAutoLevelOf(DPTweaks) == DPAutoOff) return;

@@ -3,6 +3,7 @@
 
 #import <CommonCrypto/CommonDigest.h>
 #import <Foundation/Foundation.h>
+#import "Passkeys.h"
 #include <libproc.h>
 #include <mach-o/loader.h>
 #include <sys/clonefile.h>
@@ -355,31 +356,29 @@ static NSArray<Release *> *releasesIn(NSXMLDocument *feed) {
     return releases;
 }
 
-// Early Birds: the user is in the channel their official build was released in, and gets the newest
-// build this Mac can run from that channel or the untagged stable one.
-static Release *offer(NSArray<Release *> *releases, NSString **channel) {
-    NSString *pristine = buildOf(gPristine);
-    *channel = nil;
-    for (Release *release in releases) {
-        if (![release.build isEqualToString:pristine]) continue;
-        *channel = release.channel;
-        if (!release.channel) break;  // also released untagged: stable
-    }
+// The newest build this Mac can run. Like Sparkle, it skips items tagged with a channel.
+static Release *offer(NSArray<Release *> *releases) {
     NSOperatingSystemVersion os = NSProcessInfo.processInfo.operatingSystemVersion;
     NSString *system = [NSString stringWithFormat:@"%ld.%ld.%ld", os.majorVersion, os.minorVersion, os.patchVersion];
     Release *best;
     for (Release *release in releases)
-        if ((!release.channel || [release.channel isEqualToString:*channel]) && !newer(release.minimumOS, system)
-            && (!best || newer(release.build, best.build)))
-            best = release;
+        if (!release.channel && !newer(release.minimumOS, system) && (!best || newer(release.build, best.build))) best = release;
     return best;
 }
 
+// Early Birds is its own feed, which Dia only uses once it has let the account switch App Build to it. The dylib saves
+// the feed Dia's updater asked for; until it has, the official build's own feed.
+static NSString *diaFeed(void) {
+    NSString *saved = CFBridgingRelease(CFPreferencesCopyAppValue(CFSTR("diaFeed"), CFSTR("com.diapatches")));
+    return env("DIAPATCH_FEED") ?: ([saved isKindOfClass:NSString.class] ? saved : nil) ?: infoOf(gPristine)[@"SUFeedURL"] ?: kFeed;
+}
+
 static Release *latest(int seconds, NSString **channel, NSString **problem) {
-    NSString *url = env("DIAPATCH_FEED") ?: kFeed, *output;
+    NSString *url = diaFeed(), *output;
     NSError *error;
+    *channel = [url containsString:@"/release-candidate/"] ? @"Early Birds" : nil;
     NSXMLDocument *feed = fetch(url, seconds, nil, &output) == 0 ? [[NSXMLDocument alloc] initWithXMLString:output options:0 error:&error] : nil;
-    Release *release = offer(releasesIn(feed), channel);
+    Release *release = offer(releasesIn(feed));
     if (!release)
         *problem = [NSString stringWithFormat:@"no update from %@: %@", url,
                                               feed ? @"nothing for this Mac" : error.localizedDescription ?: output];
@@ -648,6 +647,8 @@ int main(int argc, const char *argv[]) {
         gStaged = inHome(@"staged/Dia.app");
         gReady = inHome(@"staged/ready");
         gStagedTweaks = inHome(@"staged/DiaTweaks");
+        // Started by Dia as the Passkeys extension's native messaging host.
+        if (argc > 1 && !strncmp(argv[1], "chrome-extension://", 19)) return DPRunPasskeyHost(gHome);
 
         NSString *command = argc > 1 ? @(argv[1]) : @"";
         NSArray<NSString *> *allowed = @{

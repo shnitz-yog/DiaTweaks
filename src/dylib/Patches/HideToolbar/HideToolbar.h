@@ -22,4 +22,5 @@ CGFloat DPTop(NSView *pane, NSRect r);  // Distances from the pane's top, whiche
 CGFloat DPBottom(NSView *pane, NSRect r);
 NSView *DPBookmarksUnder(NSView *pane, NSView *bar);
 void DPApplyToolbar(NSView *pane);
+void DPApplyToolbarOpacity(DPToolbarHover *hover);
 void DPRelayoutPanes(void);

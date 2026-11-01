@@ -148,13 +148,16 @@ static void DPFetchPreview(NSArray<NSString *> *names, void (^done)(NSURL *file,
 
 - (void)viewDidMoveToWindow {
     [super viewDidMoveToWindow];
+    [NSNotificationCenter.defaultCenter removeObserver:self name:NSWindowDidChangeOcclusionStateNotification object:nil];
+    if (self.window) [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(updatePlayback) name:NSWindowDidChangeOcclusionStateNotification object:self.window];
     [self updatePlayback];
 }
 
+// Otherwise a covered, hidden or closed Settings window keeps decoding video nobody sees.
 - (void)updatePlayback {
     [_link invalidate];
     _link = nil;
-    if (!self.window || !_player) return [_player pause];
+    if (!(self.window.occlusionState & NSWindowOcclusionStateVisible) || !_player) return [_player pause];
     _link = [self displayLinkWithTarget:self selector:@selector(drawFrame)];
     [_link addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
     [_player play];

@@ -73,10 +73,11 @@ static char DPHoverKey;
         if (!me.pane) return [timer invalidate];
         CGFloat t = MIN(1, (CACurrentMediaTime() - start) / 0.25);
         me.progress = from + (target - from) * t * t * (3 - 2 * t);
-        DPApplyToolbar(me.pane);
+        DPApplyToolbarOpacity(me);
         if (t == 1) {
             [timer invalidate];
             me.animation = nil;
+            DPApplyToolbar(me.pane);  // Settle stacking once, after the fade.
         }
     }];
     [NSRunLoop.mainRunLoop addTimer:self.animation forMode:NSRunLoopCommonModes];

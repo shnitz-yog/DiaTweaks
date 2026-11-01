@@ -22,6 +22,13 @@ NSView *DPBookmarksUnder(NSView *pane, NSView *bar) {
     return nil;
 }
 
+// Hover animation changes opacity only; it never changes the page's reserved space.
+void DPApplyToolbarOpacity(DPToolbarHover *hover) {
+    CGFloat alpha = 1 - DPHideToolbar.progress * (1 - hover.progress);
+    if (hover.bar && hover.bar.alphaValue != alpha) hover.bar.alphaValue = alpha;
+    if (hover.bookmarks && hover.bookmarks.alphaValue != alpha) hover.bookmarks.alphaValue = alpha;
+}
+
 // Fades the bars out by `progress` and slides everything stacked under them up into their place.
 void DPApplyToolbar(NSView *pane) {
     NSView *bar = DPSubview(pane, DPDiaToolbar);
@@ -33,7 +40,7 @@ void DPApplyToolbar(NSView *pane) {
     [hover updateForBar:bar bookmarks:bookmarks];
 
     CGFloat progress = DPHideToolbar.progress;
-    for (NSView *view in bars) view.alphaValue = 1 - progress * (1 - hover.progress);
+    DPApplyToolbarOpacity(hover);
     NSIndexSet *slots = [pane.subviews indexesOfObjectsPassingTest:^BOOL(NSView *sub, NSUInteger i, BOOL *stop) { return [bars containsObject:sub]; }];
     BOOL onTop = slots.firstIndex == pane.subviews.count - bars.count, atBottom = slots.lastIndex == bars.count - 1;
     // Revealed on hover, the bars float over the page instead of pushing it down.
