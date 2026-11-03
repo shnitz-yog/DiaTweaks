@@ -1,10 +1,10 @@
-// The panel over the browser window: the search bar, the keys and mouse, and the motion Orbit.m draws.
+// The panel over the browser window: the search bar, the keys and mouse, and the motion Orbit.m or Wheel.m draws.
 #import "CommandPalette.h"
 
-extern const NSInteger DPOrbitLoopsFrom;
+extern DPPatch DPCommandPalette;
 
 static const NSTimeInterval DPMoonWait = 2, DPScrollSettle = .11, DPSuggestWait = .1;
-static const CGFloat DPPillHeight = 58, DPIdleWidth = 460, DPOpenWidth = 240, DPCollapsedWidth = 58, DPScrollPerStep = 70;
+static const CGFloat DPScrollPerStep = 70;
 static const double DPSpinRate = 16, DPRevealRate = 12, DPFocusRate = 11;
 
 @interface DPPalettePanel : NSPanel
@@ -39,11 +39,13 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
 @implementation DPPaletteController {
     DPPalettePanel *_panel;
     DPPaletteRoot *_root;
+    id<DPPaletteLayout> _layout;  // One of these two, from the Style setting.
     DPOrbit *_orbit;
+    DPWheel *_wheel;
     NSVisualEffectView *_backdrop;
     NSView *_pill;
     NSImageView *_icon;
-    NSTextField *_field, *_ghost, *_shortcut;
+    NSTextField *_field, *_ghost, *_shortcut, *_label, *_hint;
     __weak NSWindow *_parent;
     NSArray<DPPaletteRow *> *_all, *_matches, *_shown;  // _shown: _matches with Google's suggestions added.
     NSArray<NSString *> *_suggestions;
@@ -55,7 +57,7 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
     double _position, _target;
     CGFloat _reveal, _moonReveal, _focus;
     NSInteger _moonFocus;
-    BOOL _moonsOpen;
+    BOOL _moonsOpen, _rightToLeft;
 }
 
 - (instancetype)init {
@@ -83,8 +85,7 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
     [_root addSubview:_backdrop];
 
     _orbit = [DPOrbit new];
-    _orbit.view.frame = _root.bounds;
-    [_root addSubview:_orbit.view];
+    _wheel = [DPWheel new];
 
     _pill = [[NSView alloc] initWithFrame:NSZeroRect];
     _pill.wantsLayer = YES;
@@ -120,7 +121,36 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
     _shortcut = [NSTextField labelWithString:@"⌘T"];
     _shortcut.font = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
     [_pill addSubview:_shortcut];
+
+    // The wheel's: the active result's tag before the text, and the keys above the bar.
+    _label = [NSTextField labelWithString:@""];
+    _label.alignment = NSTextAlignmentRight;
+    _label.lineBreakMode = NSLineBreakByTruncatingTail;
+    [_pill addSubview:_label];
+    _hint = [NSTextField labelWithString:@"↑ ↓ to choose   ·   → for actions   ·   Tab to complete"];
+    _hint.font = [NSFont systemFontOfSize:13];
+    _hint.alignment = NSTextAlignmentCenter;
+    [_root addSubview:_hint];
     return self;
+}
+
+- (void)useLayout:(id<DPPaletteLayout>)layout {
+    if (layout == _layout) return;
+    [_layout.view removeFromSuperview];
+    _layout = layout;
+    layout.view.frame = _root.bounds;
+    [_root addSubview:layout.view positioned:NSWindowBelow relativeTo:_pill];
+    DPPaletteBarStyle style = layout.barStyle;
+    BOOL wheel = style.labelWidth > 0;
+    _field.font = _ghost.font = _label.font = [NSFont systemFontOfSize:style.fontSize];
+    _pill.layer.cornerRadius = style.radius;
+    _pill.layer.borderWidth = wheel ? 0 : 1;
+    _pill.layer.shadowOpacity = wheel ? .12 : .22;
+    _pill.layer.shadowRadius = wheel ? 24 : 13;
+    _pill.layer.shadowOffset = CGSizeMake(0, wheel ? -8 : -12);
+    _icon.hidden = wheel;
+    _label.hidden = !wheel;
+    _hint.hidden = !style.hintRise;
 }
 
 - (BOOL)isOpen { return _panel.visible; }
@@ -134,16 +164,17 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
         self->_pill.layer.backgroundColor = DPPaletteSurfaceColor().CGColor;
         self->_pill.layer.borderColor = DPPaletteLineColor().CGColor;
     }];
-    _icon.contentTintColor = _shortcut.textColor = DPPaletteFaintTextColor();
+    _icon.contentTintColor = _shortcut.textColor = _label.textColor = _hint.textColor = DPPaletteFaintTextColor();
     BOOL dark = [[appearance bestMatchFromAppearancesWithNames:@[NSAppearanceNameAqua, NSAppearanceNameDarkAqua]] isEqualToString:NSAppearanceNameDarkAqua];
     // Results need something to stand against: dark ones on a brightened page, light ones on a tinted one.
-    [_orbit setScrimColor:dark ? [NSColor colorWithWhite:1 alpha:.08] : [NSColor colorWithSRGBRed:.18 green:.16 blue:.12 alpha:.2] appearance:appearance];
+    [_layout setScrimColor:dark ? [NSColor colorWithWhite:1 alpha:.08] : [NSColor colorWithSRGBRed:.18 green:.16 blue:.12 alpha:.2] appearance:appearance];
 }
 
 - (void)showOver:(NSWindow *)parent {
     _parent = parent;
     _panel.appearance = parent.effectiveAppearance;
-    _orbit.scale = parent.backingScaleFactor;
+    [self useLayout:DPPatchChoice(&DPCommandPalette) == 1 ? _wheel : _orbit];
+    _layout.scale = parent.backingScaleFactor;
     [_panel setFrame:parent.frame display:NO];
     [self paint];
     _all = DPPaletteSnapshot();
@@ -176,8 +207,8 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
     [_panel.parentWindow removeChildWindow:_panel];
     [_panel orderOut:nil];
     _all = _matches = _shown = nil;
-    _orbit.rows = nil;
-    _orbit.moonRow = nil;
+    _layout.rows = nil;
+    _layout.moonRow = nil;
 }
 
 - (void)dismissToParent {
@@ -212,8 +243,8 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
     // Guesses that still fit stay until new ones come, so results don't flicker between keys.
     _suggestions = [_suggestions filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"SELF BEGINSWITH[c] %@ AND NOT SELF ==[c] %@", typed, _query]];
     _shown = DPPaletteAddSuggestions(_matches, _suggestions);
-    for (DPPaletteRow *row in _shown) DPPaletteDrawRow(row, _query, _panel.effectiveAppearance, _orbit.scale);
-    _orbit.rows = _shown;
+    for (DPPaletteRow *row in _shown) [_layout drawRow:row query:_query appearance:_panel.effectiveAppearance];
+    _layout.rows = _shown;
     _position = _target = 0;
     [self restartMoons];
     [self showCompletion];
@@ -234,8 +265,8 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
     NSInteger was = DPWrap(lround(_target), _shown.count);
     _suggestions = suggestions;
     _shown = DPPaletteAddSuggestions(_matches, suggestions);
-    for (DPPaletteRow *row in _shown) if (!row.image) DPPaletteDrawRow(row, _query, _panel.effectiveAppearance, _orbit.scale);
-    _orbit.rows = _shown;
+    for (DPPaletteRow *row in _shown) if (!row.image) [_layout drawRow:row query:_query appearance:_panel.effectiveAppearance];
+    _layout.rows = _shown;
     NSUInteger now = [_shown indexOfObjectPassingTest:^BOOL(DPPaletteRow *row, NSUInteger i, BOOL *stop) {
         return row == active || (row.kind == active.kind && [row.title isEqualToString:active.title]);
     }];
@@ -255,12 +286,28 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
         _completion = candidate;
         break;
     }
+    // The wheel has no chip for the result in front, so the bar names it even when it doesn't start with what's typed.
+    BOOL wheel = _layout.barStyle.labelWidth > 0;
+    NSString *rest = _completion ? [_completion substringFromIndex:typed.length] : wheel && row && typed.length ? [@"  —  " stringByAppendingString:row.title] : nil;
+    // Hebrew and Arabic keep to the bar's right end, so the rest of the word has room to grow leftwards. The ghost is
+    // told the same direction, or a guess starting with a letter the typing lacks could turn it the other way.
+    _rightToLeft = DPPaletteIsRightToLeft(typed);
+    NSMutableParagraphStyle *paragraph = [NSMutableParagraphStyle new];
+    paragraph.alignment = _rightToLeft ? NSTextAlignmentRight : NSTextAlignmentLeft;
+    paragraph.baseWritingDirection = _rightToLeft ? NSWritingDirectionRightToLeft : NSWritingDirectionLeftToRight;
+    // Only the field editor while typing: changing the field's own alignment ends editing, and every key after it is lost.
+    NSText *editor = _field.currentEditor;
+    if (editor) editor.alignment = paragraph.alignment;
+    else _field.alignment = paragraph.alignment;
     NSMutableAttributedString *ghost = [NSMutableAttributedString new];
-    if (_completion) {
-        [ghost appendAttributedString:[[NSAttributedString alloc] initWithString:typed attributes:@{NSFontAttributeName: _ghost.font, NSForegroundColorAttributeName: NSColor.clearColor}]];
-        [ghost appendAttributedString:[[NSAttributedString alloc] initWithString:[_completion substringFromIndex:typed.length] attributes:@{NSFontAttributeName: _ghost.font, NSForegroundColorAttributeName: DPPaletteFaintTextColor()}]];
+    if (rest) {
+        [ghost appendAttributedString:[[NSAttributedString alloc] initWithString:typed attributes:@{NSFontAttributeName: _ghost.font, NSForegroundColorAttributeName: NSColor.clearColor, NSParagraphStyleAttributeName: paragraph}]];
+        // Darker on the wheel, where the bar is the only place the result in front is named.
+        NSColor *color = wheel ? DPPaletteSoftTextColor() : DPPaletteFaintTextColor();
+        [ghost appendAttributedString:[[NSAttributedString alloc] initWithString:rest attributes:@{NSFontAttributeName: _ghost.font, NSForegroundColorAttributeName: color, NSParagraphStyleAttributeName: paragraph}]];
     }
     _ghost.attributedStringValue = ghost;
+    _label.stringValue = row.tag ?: @"Search";
     if (row) NSAccessibilityPostNotificationWithUserInfo(_field, NSAccessibilityAnnouncementRequestedNotification, @{NSAccessibilityAnnouncementKey: row.title});
 }
 
@@ -284,7 +331,7 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
 
 - (void)clickedAt:(NSPoint)point {
     if (NSPointInRect(point, _pill.frame)) return;
-    NSInteger moon = [_orbit moonAt:point], steps = [_orbit stepsToResultAt:point];
+    NSInteger moon = [_layout moonAt:point], steps = [_layout stepsToResultAt:point];
     if (moon >= 0) {
         _moonFocus = moon;
         [self run];
@@ -349,34 +396,30 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
 
 #pragma mark Motion
 
-- (NSRect)pillGoal {
-    NSSize size = _panel.frame.size;
-    DPOrbitFit fit = DPOrbitFitIn(size);
-    CGFloat top = fit.hubY - DPPillHeight / 2;
-    if (!_shown.count) {
-        CGFloat width = MIN(DPIdleWidth, size.width - 32);
-        return NSMakeRect(floor((size.width - width) / 2), top, width, DPPillHeight);
-    }
-    if (_moonFocus >= 0) return NSMakeRect(MAX(14, fit.chipLeft - fit.shift - DPCollapsedWidth - 10), top, DPCollapsedWidth, DPPillHeight);
-    return NSMakeRect(fit.left, top, DPOpenWidth, DPPillHeight);
-}
+- (NSRect)pillGoal { return [_layout barIn:_panel.frame.size results:_shown.count > 0 inMoons:_moonFocus >= 0]; }
 
 - (void)layoutPanel {
     NSSize size = _panel.frame.size;
     _backdrop.alphaValue = _reveal;
     _backdrop.hidden = !_reveal;
+    DPPaletteBarStyle style = _layout.barStyle;
+    BOOL wheel = style.labelWidth > 0;
     _pill.frame = NSMakeRect(_pillRect.origin.x, size.height - NSMaxY(_pillRect), _pillRect.size.width, _pillRect.size.height);
-    CGFloat width = _pillRect.size.width, fieldHeight = _field.intrinsicContentSize.height;
+    CGFloat width = _pillRect.size.width, height = style.height, fieldHeight = _field.intrinsicContentSize.height;
     // Faded, not hidden: a hidden field would lose the keyboard, and every key after → with it.
-    NSRect text = NSMakeRect(45, floor((DPPillHeight - fieldHeight) / 2), MAX(width - 61, 40), fieldHeight);
+    NSRect text = NSMakeRect(style.textLeft, floor((height - fieldHeight) / 2), MAX(width - style.textLeft - style.textRight, 40), fieldHeight);
     _field.frame = _ghost.frame = text;
-    _field.alphaValue = _ghost.alphaValue = MAX(0, 1 - _focus * 2);
-    _icon.frame = NSMakeRect(16 + 3.5 * _focus, (DPPillHeight - 19) / 2, 19, 19);
+    _field.alphaValue = _ghost.alphaValue = style.keepsText ? 1 - .4 * _focus : MAX(0, 1 - _focus * 2);
+    _label.frame = NSMakeRect(16, NSMinY(text), style.labelWidth, fieldHeight);
+    _icon.frame = NSMakeRect(16 + 3.5 * _focus, (height - 19) / 2, 19, 19);
     _pill.alphaValue = 1 - .4 * _focus;
-    _shortcut.hidden = _shown.count > 0;
+    _shortcut.stringValue = wheel && _shown.count ? @"↵" : @"⌘T";
+    _shortcut.hidden = !wheel && _shown.count > 0;
     [_shortcut sizeToFit];
-    _shortcut.frame = NSMakeRect(width - NSWidth(_shortcut.frame) - 16, floor((DPPillHeight - NSHeight(_shortcut.frame)) / 2), NSWidth(_shortcut.frame), NSHeight(_shortcut.frame));
-    [_orbit layoutInSize:size motion:(DPOrbitMotion){_position, _reveal, _moonReveal, _focus, _moonFocus}];
+    _shortcut.frame = NSMakeRect(width - NSWidth(_shortcut.frame) - 16, floor((height - NSHeight(_shortcut.frame)) / 2), NSWidth(_shortcut.frame), NSHeight(_shortcut.frame));
+    [_hint sizeToFit];
+    _hint.frame = NSMakeRect(floor((size.width - NSWidth(_hint.frame)) / 2), NSMaxY(_pill.frame) + style.hintRise - height / 2, NSWidth(_hint.frame), NSHeight(_hint.frame));
+    [_layout layoutInSize:size motion:(DPOrbitMotion){_position, _reveal, _moonReveal, _focus, _moonFocus, _rightToLeft}];
 }
 
 - (void)tick:(CADisplayLink *)link {
@@ -388,23 +431,28 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
     _lastTick = now;
     BOOL instant = NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion;
     NSInteger count = _shown.count;
-    if (count && count < DPOrbitLoopsFrom) _target = MAX(0, MIN(count - 1, _target));
+    if (count && count < _layout.loopsFrom) _target = MAX(0, MIN(count - 1, _target));
     CGFloat position = _position;
     DPEase(&position, _target, DPSpinRate, seconds, instant);
     _position = position;
     DPPaletteRow *row = self.activeRow;
-    if (row != _orbit.moonRow && row.moons.count) DPPaletteDrawMoons(row, _panel.effectiveAppearance, _orbit.scale);
-    if (row != _orbit.moonRow && !_moonReveal) _orbit.moonRow = row;
+    if (row != _layout.moonRow && row.moons.count) DPPaletteDrawMoons(row, _panel.effectiveAppearance, _layout.scale);
+    if (row != _layout.moonRow && !_moonReveal) _layout.moonRow = row;
     DPEase(&_reveal, count ? 1 : 0, DPRevealRate, seconds, instant);
-    DPEase(&_moonReveal, _moonsOpen && row == _orbit.moonRow && fabs(_target - _position) < .03 ? 1 : 0, DPSpinRate, seconds, instant);
+    DPEase(&_moonReveal, _moonsOpen && row == _layout.moonRow && fabs(_target - _position) < .03 ? 1 : 0, DPSpinRate, seconds, instant);
     DPEase(&_focus, _moonFocus >= 0 ? 1 : 0, DPFocusRate, seconds, instant);
     NSRect goal = [self pillGoal];
     CGFloat x = _pillRect.origin.x, y = _pillRect.origin.y, width = _pillRect.size.width;
     DPEase(&x, goal.origin.x, DPRevealRate, seconds, instant);
     DPEase(&y, goal.origin.y, DPRevealRate, seconds, instant);
     DPEase(&width, goal.size.width, DPRevealRate, seconds, instant);
-    _pillRect = NSMakeRect(x, y, width, DPPillHeight);
+    _pillRect = NSMakeRect(x, y, width, _layout.barStyle.height);
     [self layoutPanel];
+}
+
+- (void)press:(SEL)command {
+    NSTextView *editor = (NSTextView *)_field.currentEditor;
+    if (editor && ![self control:_field textView:editor doCommandBySelector:command]) [editor doCommandBySelector:command];
 }
 
 - (NSDictionary *)debugState {
@@ -427,6 +475,8 @@ void DPPaletteHide(void) { [DPController() dismiss]; }
 NSDictionary *DPPaletteDebugState(void) { return DPController().debugState; }
 
 void DPPaletteRunMoon(NSInteger index) { [DPController() runMoon:index]; }
+
+void DPPalettePress(SEL command) { if (DPController().isOpen) [DPController() press:command]; }
 
 void DPPaletteOpen(NSWindow *parent, NSString *text) {
     if (DPController().isOpen) return;

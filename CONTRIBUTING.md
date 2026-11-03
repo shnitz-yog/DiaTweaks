@@ -26,7 +26,7 @@ Each patch is one folder in `src/dylib/Patches/`, built on StdPatch: `src/dylib/
 - Give it a `.verify` that looks at Dia's views and returns `nil` when they match `on`, or a few words saying what's wrong. Find the views with `DPFindViews`, not through your own hooks, so a hook that never ran shows up as a failure.
 - Keep files to about 100 lines. Split a big patch into several files in its folder.
 
-With the developer tools on, a script can also drive Dia: post the distributed notification `com.diapatches.dev.set` with the object `hideToolbar=1` to flip a switch, `com.diapatches.dev.dump` to write every window's view tree to `~/Library/Application Support/DiaPatches/views.txt`, or `com.diapatches.dev.notch` with the object `open`, `close`, `center` or `corner` to look at the pinned notch without moving the pointer, or `com.diapatches.dev.halo` with `open` or `close` to look at the pin halo.
+With the developer tools on, a script can also drive Dia: post the distributed notification `com.diapatches.dev.set` with the object `hideToolbar=1` to flip a switch, `com.diapatches.dev.dump` to write every window's view tree to `~/Library/Application Support/DiaPatches/views.txt`, or `com.diapatches.dev.notch` with the object `open`, `close`, `center` or `corner` to look at the pinned notch without moving the pointer, `com.diapatches.dev.halo` with `open` or `close` to look at the pin halo, or `com.diapatches.dev.palette` with `open:` and some text, then `type:` and more text, `down`, `up`, `right`, `left`, `clear` (⌘⌫) or `close`, to drive the command palette.
 
 ## Documenting a patch
 

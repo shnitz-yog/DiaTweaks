@@ -53,6 +53,21 @@ NSURL *DPPaletteURL(NSString *query) {
     return nil;
 }
 
+BOOL DPPaletteIsRightToLeft(NSString *text) {
+    static NSCharacterSet *rightToLeft;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSMutableCharacterSet *set = [NSMutableCharacterSet new];
+        [set addCharactersInRange:NSMakeRange(0x0590, 0x0900 - 0x0590)];  // Hebrew, Arabic, Syriac, Thaana, N'Ko and their neighbours.
+        [set addCharactersInRange:NSMakeRange(0xFB1D, 0xFE00 - 0xFB1D)];  // Hebrew and Arabic presentation forms.
+        [set addCharactersInRange:NSMakeRange(0xFE70, 0xFF00 - 0xFE70)];
+        rightToLeft = set;
+    });
+    // As Unicode decides a line's direction: by its first letter, so digits and spaces before it don't count.
+    NSRange letter = [text rangeOfCharacterFromSet:NSCharacterSet.letterCharacterSet];
+    return letter.location != NSNotFound && [rightToLeft characterIsMember:[text characterAtIndex:letter.location]];
+}
+
 NSString *DPPaletteCheckMatching(void) {
     if (DPPaletteScore(@"", @"Close Tab") != 0) return @"an empty search matched";
     if (DPPaletteScore(@"xyz", @"Close Tab") != 0) return @"a wrong search matched";
@@ -67,5 +82,7 @@ NSString *DPPaletteCheckMatching(void) {
     if (![DPPaletteURL(@"localhost:3000").absoluteString isEqualToString:@"http://localhost:3000"]) return @"localhost wasn't a URL";
     if (DPPaletteURL(@"javascript:alert(1)") || DPPaletteURL(@"file:///etc/passwd")) return @"a non-web address counted as a URL";
     if (DPPaletteURL(@"group tabs by domain")) return @"a phrase counted as a URL";
+    if (!DPPaletteIsRightToLeft(@"עיריית הרצליה") || !DPPaletteIsRightToLeft(@"2 مرحبا")) return @"Hebrew or Arabic read left to right";
+    if (DPPaletteIsRightToLeft(@"Dia שלום") || DPPaletteIsRightToLeft(@"42") || DPPaletteIsRightToLeft(@"")) return @"other text read right to left";
     return nil;
 }

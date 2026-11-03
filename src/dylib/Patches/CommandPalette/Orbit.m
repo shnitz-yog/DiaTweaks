@@ -3,8 +3,9 @@
 
 enum { DPSlots = 5, DPMaxMoons = 4 };  // DPSlots: results drawn either side of the active one.
 
-const NSInteger DPOrbitLoopsFrom = 4;  // Fewer results than this don't repeat.
+static const NSInteger DPOrbitLoopsFrom = 4;  // Fewer results than this don't repeat.
 
+static const CGFloat DPPillHeight = 58, DPIdleWidth = 460, DPOpenWidth = 240, DPCollapsedWidth = 58;
 static const CGFloat DPContentWidth = 770, DPHubOffset = 76, DPRadius = 372, DPStepDegrees = 8.4, DPTilt = .4, DPPivotX = 22;
 static const CGFloat DPMaxShift = 250, DPMinChipLeft = 80;
 static const CGFloat DPMoonRadius = 170, DPMoonFocusGap = 20, DPMoonSpacing = 48, DPMoonTilt = .25, DPBackgroundBlur = 4.5;
@@ -12,7 +13,9 @@ static const CGFloat DPMoonRadius = 170, DPMoonFocusGap = 20, DPMoonSpacing = 48
 static CGFloat DPClamp(CGFloat value, CGFloat low, CGFloat high) { return MAX(low, MIN(high, value)); }
 static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % count) + count) % count; }
 
-DPOrbitFit DPOrbitFitIn(NSSize size) {
+typedef struct { CGFloat left, hubX, hubY, shift, chipLeft; } DPOrbitFit;  // Points from the top left.
+
+static DPOrbitFit DPOrbitFitIn(NSSize size) {
     CGFloat left = MAX(16, floor((size.width - DPContentWidth) / 2)), chipLeft = left - DPHubOffset + DPRadius - DPPivotX;
     return (DPOrbitFit){left, left - DPHubOffset, floor(size.height / 2), MIN(DPMaxShift, MAX(0, chipLeft - DPMinChipLeft)), chipLeft};
 }
@@ -36,7 +39,7 @@ void DPAddShadow(CALayer *layer, CGFloat radius) {
     layer.shadowOffset = CGSizeMake(0, -6);
 }
 
-static void DPSetBlur(CALayer *layer, CGFloat radius, CGFloat scale) {
+void DPSetBlur(CALayer *layer, CGFloat radius, CGFloat scale) {
     if (radius < .05) {
         if (layer.filters) layer.filters = nil;
         return;
@@ -50,11 +53,30 @@ static void DPSetBlur(CALayer *layer, CGFloat radius, CGFloat scale) {
 }
 
 @implementation DPOrbit {
-    NSView *_view;
     CALayer *_root, *_scrim, *_stage;
     NSMutableArray<CALayer *> *_chips, *_actives, *_moons;
     NSInteger _shown[DPSlots * 2 + 1];
     CGFloat _offsets[DPSlots * 2 + 1];
+}
+@synthesize view = _view, rows = _rows, moonRow = _moonRow, scale = _scale;
+
+- (NSInteger)loopsFrom { return DPOrbitLoopsFrom; }
+- (DPPaletteBarStyle)barStyle { return (DPPaletteBarStyle){DPPillHeight, 18, 17, 45, 16, 0, 0, NO}; }
+
+- (void)drawRow:(DPPaletteRow *)row query:(NSString *)query appearance:(NSAppearance *)appearance {
+    DPPaletteDrawRow(row, query, appearance, _scale);
+}
+
+// Wide and centred while empty, then over to the left of the results, then a small square beside the actions.
+- (NSRect)barIn:(NSSize)size results:(BOOL)results inMoons:(BOOL)inMoons {
+    DPOrbitFit fit = DPOrbitFitIn(size);
+    CGFloat top = fit.hubY - DPPillHeight / 2;
+    if (!results) {
+        CGFloat width = MIN(DPIdleWidth, size.width - 32);
+        return NSMakeRect(floor((size.width - width) / 2), top, width, DPPillHeight);
+    }
+    if (inMoons) return NSMakeRect(MAX(14, fit.chipLeft - fit.shift - DPCollapsedWidth - 10), top, DPCollapsedWidth, DPPillHeight);
+    return NSMakeRect(fit.left, top, DPOpenWidth, DPPillHeight);
 }
 
 - (instancetype)init {

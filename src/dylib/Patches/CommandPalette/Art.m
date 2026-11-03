@@ -28,11 +28,12 @@ static NSColor *DPTint(DPPaletteKind kind, DPTintRole role) { return DPColor(DPT
 NSColor *DPPaletteSurfaceColor(void) { return DPColor(0xFFFDFA, 0x2E2E33); }
 NSColor *DPPaletteLineColor(void) { return DPColor(0xE8E5DC, 0x45454C); }
 NSColor *DPPaletteFaintTextColor(void) { return DPColor(0xA5A29A, 0x75736D); }
+NSColor *DPPaletteSoftTextColor(void) { return DPColor(0x6F6C64, 0xB5B3AC); }
 static NSColor *DPTextColor(void) { return DPColor(0x2A2926, 0xECEAE4); }
-static NSColor *DPSoftTextColor(void) { return DPColor(0x6F6C64, 0xB5B3AC); }
 static NSColor *DPTileColor(void) { return DPColor(0xF1EEE7, 0x303036); }
 static NSColor *DPMarkColor(void) { return DPColor(0xFAE3A8, 0x6B5417); }
 static NSColor *DPActiveLineColor(void) { return DPColor(0xB8B4A8, 0x77777F); }
+static NSColor *DPAccentColor(void) { return DPColor(0x4B3FE0, 0xA9A1FF); }
 
 id DPImage(NSSize size, NSAppearance *appearance, CGFloat scale, void (^draw)(void)) {
     NSBitmapImageRep *bitmap = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:NULL pixelsWide:(NSInteger)ceil(size.width * scale) pixelsHigh:(NSInteger)ceil(size.height * scale)
@@ -79,7 +80,7 @@ static void DPDrawSymbol(NSString *name, NSColor *color, NSRect tile) {
 
 static void DPDrawChip(DPPaletteRow *row, NSString *query, CGFloat width, CGFloat titleWidth, CGFloat tagWidth, BOOL active) {
     const CGFloat height = DPPaletteChipHeight;
-    NSColor *ink = active ? DPTextColor() : DPSoftTextColor();  // Only the tag carries colour.
+    NSColor *ink = active ? DPTextColor() : DPPaletteSoftTextColor();  // Only the tag carries colour.
     DPFillRound(NSInsetRect(NSMakeRect(0, 0, width, height), .5, .5), 15, DPPaletteSurfaceColor(), active ? DPActiveLineColor() : DPPaletteLineColor(), active ? 1.5 : 1);
     NSRect tile = NSMakeRect(DPTileInset, DPTileInset, DPTileSize, DPTileSize);
     DPFillRound(tile, 12, DPTileColor(), nil, 0);
@@ -111,6 +112,19 @@ void DPPaletteDrawRow(DPPaletteRow *row, NSString *query, NSAppearance *appearan
         [inset concat];
         DPDrawChip(row, query, activeWidth, titleWidth, tagWidth, YES);
     });
+}
+
+// One line of text: the title, then where it is, an address in the accent colour or a menu in grey.
+void DPPaletteDrawLine(DPPaletteRow *row, NSAppearance *appearance, CGFloat scale) {
+    NSFont *font = [NSFont systemFontOfSize:21];
+    NSMutableAttributedString *text = [DPText(row.title, font, DPTextColor(), nil) mutableCopy];
+    if (row.detail.length) {
+        BOOL place = row.kind == DPPaletteKindTab || row.kind == DPPaletteKindSite;
+        [text appendAttributedString:DPText([@"  " stringByAppendingString:row.detail], font, place ? DPAccentColor() : DPPaletteFaintTextColor(), nil)];
+    }
+    NSSize size = NSMakeSize(MIN(ceil(text.size.width) + 2, 620), ceil(text.size.height) + 6);
+    row.imageSize = size;
+    row.image = DPImage(size, appearance, scale, ^{ DPDrawText(text, 0, size.width, size.height); });
 }
 
 void DPPaletteDrawMoons(DPPaletteRow *row, NSAppearance *appearance, CGFloat scale) {

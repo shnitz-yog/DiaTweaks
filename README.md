@@ -8,7 +8,7 @@ Unofficial and not affiliated with The Browser Company. Apple Silicon, macOS 14 
 
 This is a fork of [DiaTweaks](https://github.com/JaceThings/DiaTweaks) with three more tweaks:
 
-- **Command palette:** ⌘T opens a search bar. As you type, your open tabs, history, Dia's commands and tweaks fan out beside it on a curve, along with Google and Claude searches. Google suggests the rest of what you're typing in gray, and Tab takes it. Pause on a result or press → to see what you can do with it. It's on by default.
+- **Command palette:** ⌘T opens a search bar. As you type, your open tabs, history, Dia's commands and tweaks fan out beside it on a curve, along with Google and Claude searches. Pick **Wheel** under Style in Settings and they roll past the bar on a drum instead. Google suggests the rest of what you're typing in gray, and Tab takes it. Pause on a result or press → to see what you can do with it. It's on by default.
 - **Pinned notch:** replaces the toolbar with a notch at the bottom of the window that shows the site's domain. Hover it for back, forward, reload, extensions, bookmark, share and search, and your pinned tabs float out above it. They leave the sidebar. Pick bottom center or the bottom left corner in Settings. It's an option under **Hide toolbar**, which needs to be on.
 - **Pin halo:** hold Control and your pinned tabs and search fan out around the pointer. Flick toward one and let go.
 
