@@ -16,6 +16,7 @@ static NSURL *DPWebURL(NSString *address, NSString *name, NSString *value, NSStr
     NSMutableArray *items = [NSMutableArray arrayWithObject:[NSURLQueryItem queryItemWithName:name value:value]];
     if (extraName) [items addObject:[NSURLQueryItem queryItemWithName:extraName value:extraValue]];
     components.queryItems = items;
+    components.percentEncodedQuery = [components.percentEncodedQuery stringByReplacingOccurrencesOfString:@"+" withString:@"%2B"];  // Or "c++" reads as "c  ".
     return components.URL;
 }
 

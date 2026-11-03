@@ -1,5 +1,5 @@
 // Command palette: ⌘T opens a search bar. Typing fans the results out beside it on a loop, and resting on one for two
-// seconds, or pressing →, shows its actions. Rows are a snapshot taken on opening, except history, searched as you type.
+// seconds, or pressing →, shows its actions. Rows are a snapshot taken on opening, except history and Google's suggestions, fetched as you type.
 #import "StdPatch/StdPatch.h"
 
 typedef NS_ENUM(NSInteger, DPPaletteKind) { DPPaletteKindTab, DPPaletteKindSite, DPPaletteKindGoogle, DPPaletteKindClaude, DPPaletteKindCommand };
@@ -37,6 +37,12 @@ NSArray<DPPaletteRow *> *DPPaletteTabMoons(id tab, NSString *title, NSURL *url);
 NSArray<DPPaletteRow *> *DPPaletteSiteMoons(NSURL *url, NSString *title);
 DPPaletteRow *DPPaletteGoogleRow(NSString *query);
 DPPaletteRow *DPPaletteClaudeRow(NSString *query);
+
+// Suggest.m
+NSArray<NSString *> *DPPaletteParseSuggestions(NSData *data, NSString *query);  // Google's guesses for query, or none.
+void DPPaletteFetchSuggestions(NSString *query, void (^done)(NSArray<NSString *> *suggestions));  // On the main queue; a newer fetch cancels it.
+NSArray<DPPaletteRow *> *DPPaletteAddSuggestions(NSArray<DPPaletteRow *> *shown, NSArray<NSString *> *suggestions);  // Right after Search Google.
+NSString *DPPaletteCheckSuggestions(void);  // nil, or which check failed.
 
 // History.m
 NSArray<DPPaletteRow *> *DPPaletteHistoryRowsIn(NSString *path, NSString *query);

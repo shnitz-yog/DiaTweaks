@@ -46,7 +46,7 @@ static NSString *DPCheckTypedAddress(void) {
 }
 
 static NSString *DPVerifyCommandPalette(DPPatch *patch) {
-    NSString *problem = DPPaletteCheckMatching() ?: DPCheckTypedAddress();
+    NSString *problem = DPPaletteCheckMatching() ?: DPCheckTypedAddress() ?: DPPaletteCheckSuggestions();
     if (problem) return problem;
     if (!DPPaletteTabRows().count) return @"can't read tabs";
     if (!DPPaletteMenuItem(@"New Tab")) return @"no New Tab menu item";
@@ -60,7 +60,7 @@ DP_PATCH(DPCommandPalette) {
     .defaultOn = YES,
     .order = 100,
     .title = @"Command palette",
-    .detail = @"Open a search bar with ⌘T. Your tabs, history and Dia’s commands orbit it as you type, and → shows what you can do with each one. History is read on your Mac and stays there.",
+    .detail = @"Open a search bar with ⌘T. Your tabs, history and Dia’s commands orbit it as you type, and → shows what you can do with each one. History is read on your Mac and stays there; what you type goes to Google for search suggestions.",
     .symbol = @"command",
     .tint = @"systemPurpleColor",
     .section = @"Window",

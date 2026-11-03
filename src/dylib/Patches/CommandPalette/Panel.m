@@ -3,7 +3,7 @@
 
 extern const NSInteger DPOrbitLoopsFrom;
 
-static const NSTimeInterval DPMoonWait = 2, DPScrollSettle = .11;
+static const NSTimeInterval DPMoonWait = 2, DPScrollSettle = .11, DPSuggestWait = .1;
 static const CGFloat DPPillHeight = 58, DPIdleWidth = 460, DPOpenWidth = 240, DPCollapsedWidth = 58, DPScrollPerStep = 70;
 static const double DPSpinRate = 16, DPRevealRate = 12, DPFocusRate = 11;
 
@@ -45,7 +45,8 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
     NSImageView *_icon;
     NSTextField *_field, *_ghost, *_shortcut;
     __weak NSWindow *_parent;
-    NSArray<DPPaletteRow *> *_all, *_shown;
+    NSArray<DPPaletteRow *> *_all, *_matches, *_shown;  // _shown: _matches with Google's suggestions added.
+    NSArray<NSString *> *_suggestions;
     NSString *_completion, *_query;
     CADisplayLink *_link;
     NSTimer *_moonTimer;
@@ -146,6 +147,7 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
     [_panel setFrame:parent.frame display:NO];
     [self paint];
     _all = DPPaletteSnapshot();
+    _suggestions = nil;
     _field.stringValue = @"";
     _position = _target = _reveal = _moonReveal = _focus = 0;
     [self reload];
@@ -170,10 +172,10 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
     [_link invalidate];
     _link = nil;
     [self closeMoons];
-    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(settle) object:nil];
+    [NSObject cancelPreviousPerformRequestsWithTarget:self];
     [_panel.parentWindow removeChildWindow:_panel];
     [_panel orderOut:nil];
-    _all = _shown = nil;
+    _all = _matches = _shown = nil;
     _orbit.rows = nil;
     _orbit.moonRow = nil;
 }
@@ -204,12 +206,42 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
 #pragma mark Results
 
 - (void)reload {
-    _query = [_field.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-    _shown = DPPaletteFilter(_all, _query);
+    NSString *typed = _field.stringValue;
+    _query = [typed stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    _matches = DPPaletteFilter(_all, _query);
+    // Guesses that still fit stay until new ones come, so results don't flicker between keys.
+    _suggestions = [_suggestions filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"SELF BEGINSWITH[c] %@ AND NOT SELF ==[c] %@", typed, _query]];
+    _shown = DPPaletteAddSuggestions(_matches, _suggestions);
     for (DPPaletteRow *row in _shown) DPPaletteDrawRow(row, _query, _panel.effectiveAppearance, _orbit.scale);
     _orbit.rows = _shown;
     _position = _target = 0;
     [self restartMoons];
+    [self showCompletion];
+    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(fetchSuggestions) object:nil];
+    if (_query.length) [self performSelector:@selector(fetchSuggestions) withObject:nil afterDelay:DPSuggestWait inModes:@[NSRunLoopCommonModes]];
+}
+
+- (void)fetchSuggestions {
+    NSString *typed = _field.stringValue;
+    __weak DPPaletteController *weakSelf = self;
+    DPPaletteFetchSuggestions(typed, ^(NSArray<NSString *> *suggestions) { [weakSelf showSuggestions:suggestions for:typed]; });
+}
+
+// Guesses arrive after the results are up, so they slot in without moving the one in front.
+- (void)showSuggestions:(NSArray<NSString *> *)suggestions for:(NSString *)typed {
+    if (!self.isOpen || !_shown.count || ![typed isEqualToString:_field.stringValue] || [suggestions isEqualToArray:_suggestions ?: @[]]) return;
+    DPPaletteRow *active = self.activeRow;
+    NSInteger was = DPWrap(lround(_target), _shown.count);
+    _suggestions = suggestions;
+    _shown = DPPaletteAddSuggestions(_matches, suggestions);
+    for (DPPaletteRow *row in _shown) if (!row.image) DPPaletteDrawRow(row, _query, _panel.effectiveAppearance, _orbit.scale);
+    _orbit.rows = _shown;
+    NSUInteger now = [_shown indexOfObjectPassingTest:^BOOL(DPPaletteRow *row, NSUInteger i, BOOL *stop) {
+        return row == active || (row.kind == active.kind && [row.title isEqualToString:active.title]);
+    }];
+    double shift = (now == NSNotFound ? MIN(was, (NSInteger)_shown.count - 1) : (NSInteger)now) - lround(_target);
+    _target += shift;
+    _position += shift;
     [self showCompletion];
 }
 
@@ -217,7 +249,8 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
     NSString *typed = _field.stringValue;
     DPPaletteRow *row = self.activeRow;
     _completion = nil;
-    for (NSString *candidate in @[row.searchText ?: @"", row.title ?: @""]) {
+    // The result in front first, so a site you know beats Google's guess.
+    for (NSString *candidate in [@[row.searchText ?: @"", row.title ?: @""] arrayByAddingObjectsFromArray:_suggestions ?: @[]]) {
         if (!typed.length || [candidate rangeOfString:typed options:NSCaseInsensitiveSearch | NSAnchoredSearch].location == NSNotFound) continue;
         _completion = candidate;
         break;
@@ -378,7 +411,7 @@ static NSInteger DPWrap(NSInteger value, NSInteger count) { return ((value % cou
     DPPaletteRow *row = self.activeRow;
     return @{@"open": @(self.isOpen), @"query": _field.stringValue, @"count": @(_shown.count), @"active": row.title ?: @"",
              @"moonsOpen": @(_moonsOpen), @"moonReveal": @(_moonReveal), @"focus": @(_focus), @"moon": _moonFocus >= 0 ? row.moons[_moonFocus].title : @"",
-             @"keyboard": @(_field.currentEditor != nil), @"completion": _completion ?: @"", @"pillWidth": @(_pillRect.size.width)};
+             @"keyboard": @(_field.currentEditor != nil), @"completion": _completion ?: @"", @"suggestions": _suggestions ?: @[], @"pillWidth": @(_pillRect.size.width)};
 }
 @end
 
